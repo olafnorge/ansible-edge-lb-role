@@ -1,0 +1,23 @@
+---
+- name: create secrets for lb.example.com
+  docker_secret:
+    data: "{{ item.value.data }}"
+    name: "{{ item.value.name }}"
+    state: present
+  no_log: yes
+  with_dict: "{{ lb_olafnorge_de_secrets }}"
+
+- name: create docker overlay networks
+  docker_network:
+    driver: overlay
+    name: "{{ item.key }}"
+    state: present
+  with_dict: "{{ lb_olafnorge_de_network_definitions }}"
+
+- name: spawn lb.example.com service
+  docker_stack:
+    compose:
+      - "{{ lb_olafnorge_de_compose }}"
+    name: "{{ lb_olafnorge_de_name }}"
+    prune: yes
+    state: present

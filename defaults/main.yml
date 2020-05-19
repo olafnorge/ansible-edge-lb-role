@@ -1,0 +1,140 @@
+---
+lb_olafnorge_de_compose:
+  version: "3.7"
+  services:
+    ext-proxy:
+      deploy:
+        placement:
+          constraints:
+            - node.role == manager
+        mode: global
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        DATAPLANE_PASS: /run/secrets/lb_olafnorge_de_dataplane_pass
+        HAPROXY_LISTEN_NETWORK: ext-proxy
+        HAPROXY_MAIL_SERVICE_ENABLED: "true"
+        HAPROXY_MAIL_SERVICE_ACCEPT_PROXY: "true"
+        HAPROXY_MAIL_SERVICE_SEND_PROXY: "true"
+        HAPROXY_MAXCONN: 20000
+        HAPROXY_SSL_DH_PARAM_FILE: /run/secrets/lb_olafnorge_de_haproxy_ssl_dh_param_file
+        HAPROXY_STATS_AUTH_PASS: /run/secrets/lb_olafnorge_de_haproxy_stats_auth_pass
+      image: "olafnorge/haproxy:{{ lb_olafnorge_de_haproxy_version }}"
+      networks:
+        - ext-proxy
+      secrets:
+        - lb_olafnorge_de_dataplane_pass
+        - lb_olafnorge_de_haproxy_ssl_dh_param_file
+        - lb_olafnorge_de_haproxy_stats_auth_pass
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+    int-proxy:
+      deploy:
+        placement:
+          constraints:
+            - node.role == manager
+        mode: global
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        DATAPLANE_PASS: /run/secrets/lb_olafnorge_de_dataplane_pass
+        HAPROXY_LISTEN_NETWORK: int-proxy
+        HAPROXY_MAXCONN: 20000
+        HAPROXY_SMB_SERVICE_ENABLED: "true"
+        HAPROXY_SSH_SERVICE_ENABLED: "true"
+        HAPROXY_SSL_DH_PARAM_FILE: /run/secrets/lb_olafnorge_de_haproxy_ssl_dh_param_file
+        HAPROXY_STATS_AUTH_PASS: /run/secrets/lb_olafnorge_de_haproxy_stats_auth_pass
+        HAPROXY_TCP_SERVICE_ENABLED: "true"
+      image: "olafnorge/haproxy:{{ lb_olafnorge_de_haproxy_version }}"
+      networks:
+        - int-proxy
+      secrets:
+        - lb_olafnorge_de_dataplane_pass
+        - lb_olafnorge_de_haproxy_ssl_dh_param_file
+        - lb_olafnorge_de_haproxy_stats_auth_pass
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+    certbot:
+      deploy:
+        placement:
+          constraints:
+            - node.role == manager
+        replicas: 1
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 5
+          window: 300s
+        update_config:
+          failure_action: rollback
+          monitor: 120s
+      environment:
+        DNS_CLOUDFLARE_CREDENTIALS_FILE: /run/secrets/lb_olafnorge_de_certbot_credentials
+        CERTBOT_EMAIL: "{{ lb_olafnorge_de_certbot_environment.email }}"
+        CERTBOT_MODE: "{{ lb_olafnorge_de_certbot_environment.mode | default('staging') }}"
+      image: "olafnorge/certbot:{{ lb_olafnorge_de_certbot_version }}"
+      networks:
+        - ext-proxy
+        - int-proxy
+      secrets:
+        - lb_olafnorge_de_certbot_credentials
+      volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
+  networks: "{{ lb_olafnorge_de_network_definitions }}"
+  secrets:
+    lb_olafnorge_de_certbot_credentials:
+      external: true
+    lb_olafnorge_de_dataplane_pass:
+      external: true
+    lb_olafnorge_de_haproxy_ssl_dh_param_file:
+      external: true
+    lb_olafnorge_de_haproxy_stats_auth_pass:
+      external: true
+
+lb_olafnorge_de_name: lbolafnorgede
+lb_olafnorge_de_network_definitions:
+  ext-proxy:
+    external: true
+  int-proxy:
+    external: true
+lb_olafnorge_de_haproxy_version: latest
+lb_olafnorge_de_certbot_version: latest
+
+lb_olafnorge_de_certbot_environment:
+  email: user@example.com
+  mode: staging
+
+lb_olafnorge_de_secrets:
+  certbot_credentials:
+    data: "{{ lb_olafnorge_de_certbot_credentials }}"
+    name: lb_olafnorge_de_certbot_credentials
+  dataplane_pass:
+    data: "{{ lb_olafnorge_de_dataplane_pass }}"
+    name: lb_olafnorge_de_dataplane_pass
+  haproxy_ssl_dh_param_file:
+    data: "{{ lb_olafnorge_de_haproxy_ssl_dh_param_file }}"
+    name: lb_olafnorge_de_haproxy_ssl_dh_param_file
+  haproxy_stats_auth_pass:
+    data: "{{ lb_olafnorge_de_haproxy_stats_auth_pass }}"
+    name: lb_olafnorge_de_haproxy_stats_auth_pass
+
+# vaults, you may define them in a separate file which overrides these defaults
+lb_olafnorge_de_certbot_credentials: # FIXME: add your vault here using 'ansible-vault'
+lb_olafnorge_de_dataplane_pass: # FIXME: add your vault here using 'ansible-vault'
+lb_olafnorge_de_haproxy_ssl_dh_param_file: # FIXME: add your vault here using 'ansible-vault'
+lb_olafnorge_de_haproxy_stats_auth_pass: # FIXME: add your vault here using 'ansible-vault'
